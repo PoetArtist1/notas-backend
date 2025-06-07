@@ -28,14 +28,27 @@ exports.getCategories = async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: 'Error listado categorías' });
+    res.status(500).json({ msg: 'Error listando categorías' });
   }
 };
 
-// Eliminar categoría (se removrá de note_category en cascada)
+// Eliminar categoría y notas vinculadas
 exports.deleteCategory = async (req, res) => {
-  const catId = req.params.id;
+  const catId = parseInt(req.params.id, 10);
+  if (isNaN(catId)) {
+    return res.status(400).json({ msg: 'ID inválido' });
+  }
   try {
+    // 1) Eliminar notas que están en esta categoría
+    await pool.query(
+      `DELETE FROM notes
+       WHERE user_id = $1
+         AND id IN (
+           SELECT note_id FROM note_category WHERE category_id = $2
+         )`,
+      [req.userId, catId]
+    );
+    // 2) Eliminar la categoría (y con ON DELETE CASCADE en note_category, ya remueve vínculos)
     const result = await pool.query(
       'DELETE FROM categories WHERE id = $1 AND user_id = $2 RETURNING *',
       [catId, req.userId]
@@ -46,7 +59,7 @@ exports.deleteCategory = async (req, res) => {
     res.sendStatus(204);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: 'Error eliminando categoría' });
+    res.status(500).json({ msg: 'Error eliminando categoría y notas vinculadas' });
   }
 };
 
@@ -84,13 +97,17 @@ exports.removeNoteFromCategory = async (req, res) => {
 
 // Listar notas por categoría
 exports.getNotesByCategory = async (req, res) => {
-  const catId = req.params.id;
+  const catId = parseInt(req.params.id, 10);
+  if (isNaN(catId)) {
+    return res.status(400).json({ msg: 'ID inválido' });
+  }
   try {
     const result = await pool.query(
       `SELECT n.*, f.priority
        FROM note_category nc
        JOIN notes n ON n.id = nc.note_id
-       LEFT JOIN favorites f ON f.note_id = n.id AND f.user_id = $1
+       LEFT JOIN favorites f
+         ON f.note_id = n.id AND f.user_id = $1
        WHERE nc.category_id = $2
        ORDER BY f.priority DESC NULLS LAST, n.title ASC`,
       [req.userId, catId]

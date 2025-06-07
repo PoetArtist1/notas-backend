@@ -14,9 +14,6 @@ router.post(
 // Listar categorías
 router.get('/', categoryController.getCategories);
 
-// Eliminar categoría
-router.delete('/:id', categoryController.deleteCategory);
-
 // Agregar nota a categoría
 router.post('/add-note', categoryController.addNoteToCategory);
 
@@ -25,5 +22,8 @@ router.delete('/remove-note', categoryController.removeNoteFromCategory);
 
 // Listar notas por categoría
 router.get('/:id/notes', categoryController.getNotesByCategory);
+
+// Eliminar categoría
+router.delete('/:id', categoryController.deleteCategory);
 
 module.exports = router;

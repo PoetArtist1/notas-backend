@@ -22,16 +22,21 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login (texto plano)
+// Login (texto plano), ahora también devuelve username
 exports.login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const result = await pool.query('SELECT id, password FROM users WHERE email = $1', [email]);
+    const result = await pool.query(
+      'SELECT id, username, password FROM users WHERE email = $1',
+      [email]
+    );
     if (result.rows.length === 0 || result.rows[0].password !== password) {
       return res.status(401).json({ msg: 'Credenciales inválidas' });
     }
-    const token = jwt.sign({ userId: result.rows[0].id }, process.env.JWT_SECRET);
-    res.json({ token });
+    const user = result.rows[0];
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
+    // Devolvemos también el username
+    res.json({ token, username: user.username });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: 'Error en login' });
